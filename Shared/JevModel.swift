@@ -123,7 +123,7 @@ struct KeyboardStatus: Codable, Equatable {
 /// 配置与状态的唯一存放点。键值放 App Group UserDefaults：
 /// 键盘扩展只有拿到「允许完全访问」后才能读共享容器，正好与联网条件一致。
 enum JevStore {
-    static let appGroupID = "group.com.jevchat.jarvis"
+    static let appGroupID = "group.81c139ae9a27a7f8.1"
     private static let configKey = "jev.config.v1"
     private static let removedGenerationBase = "http://101.132.131.220:11111/v1"
     private static let statusKey = "jev.kbstatus.v1"

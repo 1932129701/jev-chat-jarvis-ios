@@ -263,7 +263,7 @@ enum JevLiveStore {
     static let snapshotKey = "jev.live.snapshot.v3"
     /// 与 JevStore.appGroupID 同值。JevLive.swift 单文件编译进广播扩展（不带 JevModel），
     /// 所以这里自带一份——改 App Group 时 entitlements / project.yml / 这两处要一起改。
-    private static let appGroupID = "group.com.jevchat.jarvis"
+    private static let appGroupID = "group.81c139ae9a27a7f8.1"
     /// 快照多久之内算「监听中」。扩展靠 2 秒一次的心跳维持 updatedAt，
     /// 广播一停快照自然过期，键盘/主 App 据此回到空闲，不需要显式的停止信号。
     static let freshWindow: TimeInterval = 150

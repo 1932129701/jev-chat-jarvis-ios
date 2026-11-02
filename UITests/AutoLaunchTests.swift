@@ -127,7 +127,7 @@ final class AutoLaunchTests: XCTestCase {
         let appGroupRoot = home + "/../../../Shared/AppGroup"
         guard let groups = try? FileManager.default.contentsOfDirectory(atPath: appGroupRoot) else { return false }
         for g in groups {
-            let plist = appGroupRoot + "/\(g)/Library/Preferences/group.com.jevchat.jarvis.plist"
+            let plist = appGroupRoot + "/\(g)/Library/Preferences/group.81c139ae9a27a7f8.1.plist"
             guard let data = FileManager.default.contents(atPath: plist),
                   let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
                   let status = dict["jev.kbstatus.v1"] as? Data,

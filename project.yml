@@ -12,7 +12,7 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: 75LZ93U5CF
-    CURRENT_PROJECT_VERSION: "4"
+    CURRENT_PROJECT_VERSION: "5"
     MARKETING_VERSION: "0.2.0"
     GENERATE_INFOPLIST_FILE: false
 
@@ -47,7 +47,7 @@ targets:
       path: App/JevJarvis.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.jevchat.jarvis
+          - group.81c139ae9a27a7f8.1
     dependencies:
       - target: JevKeyboard
       - target: JevLive
@@ -89,7 +89,7 @@ targets:
       path: Keyboard/JevKeyboard.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.jevchat.jarvis
+          - group.81c139ae9a27a7f8.1
 
   # 直播模式：ReplayKit 广播上传扩展。录屏 → 本地 OCR → 快照写 App Group。
   # 只挂 Shared/JevLive.swift 一个共享文件，别把整条管线拖进 50MB 内存上限的进程。
@@ -119,7 +119,7 @@ targets:
       path: Broadcast/JevLive.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.jevchat.jarvis
+          - group.81c139ae9a27a7f8.1
 
   # 真机 UI 自动化：USB 连着手机 `xcodebuild test -scheme JevJarvis` 全自动回归直播链路。
   # 测试器会往系统广播面板（SpringBoard 进程）里点「开始/停止直播」，手机需解锁且别拔线。
