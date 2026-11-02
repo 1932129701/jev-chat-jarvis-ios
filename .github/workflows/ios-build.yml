@@ -1,0 +1,63 @@
+name: Jev iOS Build
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare Xcode project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          xcodebuild -version | tee output/xcode-version.txt
+          if ! command -v xcodegen >/dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate --spec project.yml
+
+      - name: Build unsigned device archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -project JevJarvis.xcodeproj \
+            -scheme JevJarvis \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/JevJarvis.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM= \
+            2>&1 | tee output/build.log
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/JevJarvis.xcarchive/Products/Applications/JevJarvis.app"
+          test -d "$app/PlugIns/JevKeyboard.appex"
+          test -d "$app/PlugIns/JevLive.appex"
+          mkdir -p "$RUNNER_TEMP/package/Payload"
+          ditto "$app" "$RUNNER_TEMP/package/Payload/JevJarvis.app"
+          cd "$RUNNER_TEMP/package"
+          zip -qry "$GITHUB_WORKSPACE/output/JevJarvis-unsigned.ipa" Payload
+
+      - name: Upload build files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jev-iOS-build
+          path: output/
+          retention-days: 14
