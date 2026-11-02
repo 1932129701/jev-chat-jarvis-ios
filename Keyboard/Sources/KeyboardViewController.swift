@@ -128,7 +128,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func liveTick() {
-        guard mode == .idle else { return }
+        guard mode == .idle, independentSettings == nil else { return }
         let sig = Self.liveSignature()
         if sig != lastLiveSignature {
             lastLiveSignature = sig
@@ -141,7 +141,7 @@ final class KeyboardViewController: UIInputViewController {
     /// 结果直接丢掉（失败也无所谓，真分析时该走的路径照走）。
     private func prewarm() {
         guard hasFullAccess else { return }
-        let g = JevStore.loadConfig().generation
+        let g = KeyboardLocalConfig.effective().generation
         guard !g.key.isEmpty, !g.base.isEmpty else { return }
         let base = g.base.hasSuffix("/") ? String(g.base.dropLast()) : g.base
         guard let url = URL(string: base + "/models") else { return }
@@ -195,7 +195,12 @@ final class KeyboardViewController: UIInputViewController {
 
         topBar.addSubview(title)
         title.translatesAutoresizingMaskIntoConstraints = false
-        let hstack = UIStackView(arrangedSubviews: [UIView(), globe, backspace])
+        let settings = KB.button("", icon: "gearshape")
+        settings.accessibilityLabel = "键盘独立设置"
+        settings.addTarget(self, action: #selector(openIndependentSettings), for: .touchUpInside)
+        settings.widthAnchor.constraint(equalToConstant: 36).isActive = true
+        settings.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        let hstack = UIStackView(arrangedSubviews: [UIView(), settings, globe, backspace])
         hstack.axis = .horizontal
         hstack.spacing = 8
         topBar.addSubview(hstack)
@@ -213,6 +218,31 @@ final class KeyboardViewController: UIInputViewController {
             hstack.centerYAnchor.constraint(equalTo: topBar.centerYAnchor),
             hstack.trailingAnchor.constraint(equalTo: topBar.trailingAnchor),
         ])
+    }
+
+    private var independentSettings: KeyboardLocalSettingsView?
+
+    @objc private func openIndependentSettings() {
+        guard mode != .loading, independentSettings == nil else { return }
+        let panel = KeyboardLocalSettingsView(fullAccess: hasFullAccess)
+        independentSettings = panel
+        panel.onClose = { [weak self, weak panel] in
+            panel?.removeFromSuperview()
+            guard let self else { return }
+            self.independentSettings = nil
+            self.mode = self.hasFullAccess ? .idle : .gate
+            self.render()
+        }
+        view.addSubview(panel)
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            panel.topAnchor.constraint(equalTo: topBar.bottomAnchor, constant: 4),
+            panel.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            panel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            panel.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
+        lastFit = nil
+        heightConstraint.constant = maxPanelHeight + containerGap
     }
 
     private func buildContentStack() {
@@ -237,6 +267,7 @@ final class KeyboardViewController: UIInputViewController {
     /// 反被挤成一条（"就只有一个东西"）。这里把各块在真实宽度下的高度加起来定高，190 起、470 封顶，
     /// 超出的部分才交给滚动。
     private func refit() {
+        if independentSettings != nil { heightConstraint.constant = maxPanelHeight + containerGap; return }
         let avail = view.bounds.width - 24
         guard avail > 60, !fitBlocks.isEmpty else { return }
         var height: CGFloat = 6 + 36 + 6 + 8      // 上边距 + 顶栏 + 间距 + 下边距
@@ -404,7 +435,7 @@ final class KeyboardViewController: UIInputViewController {
     // MARK: 待机视图
 
     private func idleView() -> UIView {
-        let cfg = JevStore.loadConfig()
+        let cfg = KeyboardLocalConfig.effective()
 
         var rows: [UIView] = []
         let snap = JevLiveStore.load()
@@ -489,7 +520,7 @@ final class KeyboardViewController: UIInputViewController {
         if JevDraft(cfg: cfg).isConfigured {
             // 配置完整时不占行
         } else {
-            let warn = KB.label(L("⚠️ 还没配置生成层：打开 Jev Jarvis App →「模型」页填 API Key", "⚠️ Generation is not configured: open Jev Jarvis → Models and add an API key"),
+            let warn = KB.label(L("⚠️ 还没配置生成层：点右上角齿轮设置键盘独立配置", "⚠️ Generation is not configured: tap the gear to configure this keyboard"),
                                 font: .systemFont(ofSize: 12), color: .systemOrange, lines: 0)
             vstack.addArrangedSubview(warn)
         }
@@ -504,7 +535,7 @@ final class KeyboardViewController: UIInputViewController {
     /// 话术选择：内置 + 自定义全列出来，点一下选中/取消，最多 3 个槽。
     /// 每次从共享配置重新读（App 那边改过也能立刻看到），选中即落盘，下一次分析就生效。
     private func tonesView() -> UIView {
-        let cfg = JevStore.loadConfig()
+        let cfg = KeyboardLocalConfig.effective()
         let names = orderedToneNames(custom: cfg.customTones)
         let active = cfg.activeSlots
 
@@ -555,7 +586,7 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func toneChipTapped(_ sender: UIButton) {
         guard let name = sender.accessibilityIdentifier else { return }
-        var cfg = JevStore.loadConfig()
+        var cfg = KeyboardLocalConfig.effective()
         var slots = cfg.slots
         while slots.count < MAX_SLOTS { slots.append(NONE_LABEL) }
         if let i = slots.firstIndex(of: name) {
@@ -566,7 +597,13 @@ final class KeyboardViewController: UIInputViewController {
             slots[MAX_SLOTS - 1] = name                // 槽满了就顶掉最后一个
         }
         cfg.slots = Array(slots.prefix(MAX_SLOTS))
-        JevStore.saveConfig(cfg)                       // 立刻落盘：下一次分析就用新槽位
+        do {
+            try KeyboardLocalConfig.saveEffective(cfg)
+        } catch {
+            errorText = L("保存话术失败，请在键盘独立设置中重试。", "Could not save tones. Retry in keyboard settings.")
+            setMode(.error)
+            return
+        }
         render()                                       // 重画刷新高亮
     }
 
@@ -791,6 +828,12 @@ final class KeyboardViewController: UIInputViewController {
             setMode(.error)
             return
         }
+        if let data = text.data(using: .utf8),
+           (try? JSONDecoder().decode(JevConfig.self, from: data)) != nil {
+            errorText = L("剪贴板是包含 Key 的模型配置，请先在齿轮设置中导入，再复制聊天消息。", "The clipboard contains model credentials. Import them in Settings, then copy a chat message.")
+            setMode(.error)
+            return
+        }
         run(message: text, context: nil)
     }
 
@@ -826,7 +869,7 @@ final class KeyboardViewController: UIInputViewController {
         lastContext = context
         setMode(.loading)
         stageLabel.text = L("判断中…", "Judging…")
-        let pipeline = JevPipeline(cfg: JevStore.loadConfig())
+        let pipeline = JevPipeline(cfg: KeyboardLocalConfig.effective())
 
         Task { @MainActor [weak self] in
             let analysis = await pipeline.analyze(

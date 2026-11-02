@@ -5,11 +5,33 @@ import UIKit
 struct ProvidersView: View {
     @EnvironmentObject private var store: ConfigStore
 
+    @State private var confirmKeyboardExport = false
+    @State private var exportStatus = ""
+
     var body: some View {
         NavigationStack {
             Form {
                 judgeSection
                 generationSection
+                Section {
+                    Button("复制配置供键盘独立导入") { confirmKeyboardExport = true }
+                    if !exportStatus.isEmpty { Text(exportStatus).font(.caption) }
+                } footer: {
+                    Text("包含 API Key。仅在你主动确认时复制到本机剪贴板，60 秒后过期。随后切到 Jev 键盘 → 齿轮 → 从主 App 导入 → 保存。")
+                }
+            }
+            .confirmationDialog("复制包含 API Key 的配置？", isPresented: $confirmKeyboardExport, titleVisibility: .visible) {
+                Button("复制到本机剪贴板（60 秒）") {
+                    do {
+                        let data = try JSONEncoder().encode(store.config)
+                        guard let text = String(data: data, encoding: .utf8) else { return }
+                        UIPasteboard.general.setItems([["public.utf8-plain-text": text]], options: [
+                            .localOnly: true, .expirationDate: Date().addingTimeInterval(60)
+                        ])
+                        exportStatus = "已复制，请在 60 秒内到 Jev 键盘独立设置导入。"
+                    } catch { exportStatus = "复制失败，请重试。" }
+                }
+                Button("取消", role: .cancel) {}
             }
             .navigationTitle(jevLocalized(store.language, zh: "模型", en: "Models"))
         }
